@@ -48,7 +48,7 @@
             <!-- 新增：保存按钮 → 点击才上传云端 -->
             <el-button
               type="success"
-              icon="el-icon-download"
+              icon="el-icon-upload"
               @click="handleSaveToCloud"
             >
               保存到云端
@@ -59,7 +59,12 @@
           </div>
         </div>
 
-        <el-table :data="currentRankList" border style="width: 100%">
+        <el-table
+          v-loading="loading"
+          :data="currentRankList"
+          border
+          style="width: 100%"
+        >
           <el-table-column label="排名" prop="rank" width="80" align="center" />
           <el-table-column label="名称" prop="name" />
           <el-table-column label="描述" prop="desc" />
@@ -123,6 +128,7 @@ export default {
   name: "App",
   data() {
     return {
+      loading: false,
       // ========== 改成你自己的 ==========
       JSONBIN_MASTER_KEY:
         "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
@@ -159,6 +165,7 @@ export default {
     // ==============================================
     async loadAllData() {
       try {
+        this.loading = true;
         const res = await fetch(
           `https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}/latest`,
           { headers: { "X-Master-Key": this.JSONBIN_MASTER_KEY } }
@@ -167,7 +174,8 @@ export default {
         this.themeList = data.record.themeList || [];
         this.rankList = data.record.rankList || {};
         if (this.themeList.length) this.currentThemeId = this.themeList[0].id;
-        this.$message.success("数据加载完成");
+        // this.$message.success("数据加载完成");
+        this.loading = false;
       } catch (e) {
         this.$message.error("加载失败");
       }
@@ -193,6 +201,7 @@ export default {
         this.$message.success("✅ 所有数据已保存到云端！");
       } catch (err) {
         this.$message.error("保存失败");
+        this.loadAllData();
       }
     },
 
@@ -241,23 +250,39 @@ export default {
     // ==============================================
     addRankItem() {
       this.editItemId = null;
+      // 重置清空，防止残留旧描述
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
     },
     editItem(row) {
+      // 关键：深拷贝，不关联原行数据
       this.editItemId = row.id;
-      this.itemForm = { ...row };
+      this.itemForm = JSON.parse(JSON.stringify(row));
       this.itemDialog = true;
     },
     saveItem() {
       const list = this.rankList[this.currentThemeId];
       if (this.editItemId) {
-        const idx = list.findIndex((i) => i.id === this.editItemId);
-        list[idx] = { ...this.itemForm, id: this.editItemId };
+        // 编辑：逐个赋值，强制更新视图
+        let idx = list.findIndex((i) => i.id === this.editItemId);
+        if (idx > -1) {
+          list[idx].rank = this.itemForm.rank;
+          list[idx].name = this.itemForm.name;
+          // 重点：单独给 desc 赋值，强制响应式更新
+          list[idx].desc = this.itemForm.desc;
+          // 强制表格刷新
+          this.rankList[this.currentThemeId] = [...list];
+        }
       } else {
         const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
-        list.push({ ...this.itemForm, id: newId });
+        list.push({
+          id: newId,
+          rank: this.itemForm.rank,
+          name: this.itemForm.name,
+          desc: this.itemForm.desc,
+        });
       }
+
       this.itemDialog = false;
       this.$message.success("本地保存成功 → 点【保存到云端】同步");
     },
