@@ -110,28 +110,16 @@ export default {
   name: "App",
   data() {
     return {
-      // 主题列表
-      themeList: [
-        { id: 1, name: "运动品牌排名" },
-        { id: 2, name: "美国总统排名" },
-      ],
+      // ========== JSONBIN 配置（你必须改成自己的！）==========
+      JSONBIN_MASTER_KEY: "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
+      JSONBIN_BIN_ID: "6a01e01cc0954111d8098878",
+
+      themeList: [],
       activeThemeId: "1",
       currentThemeId: 1,
-      editThemeId: null, // 编辑主题ID
+      editThemeId: null,
 
-      // 排名数据
-      rankList: {
-        1: [
-          { id: 1, rank: 1, name: "耐克", desc: "全球第一运动品牌" },
-          { id: 2, rank: 2, name: "阿迪达斯", desc: "德国经典运动品牌" },
-        ],
-        2: [
-          { id: 1, rank: 1, name: "林肯", desc: "废除奴隶制" },
-          { id: 2, rank: 2, name: "华盛顿", desc: "美国国父" },
-        ],
-      },
-
-      // 弹窗
+      rankList: {},
       themeDialog: false,
       itemDialog: false,
       themeForm: { name: "" },
@@ -148,26 +136,83 @@ export default {
       return this.rankList[this.currentThemeId] || [];
     },
   },
+  mounted() {
+    this.loadAllData(); // 页面加载自动拉取云端数据
+  },
   methods: {
-    // 切换主题
+    // ==============================================
+    // 1. 从 JSONBIN 加载所有数据
+    // ==============================================
+    async loadAllData() {
+      try {
+        const res = await fetch(
+          `https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}/latest`,
+          {
+            headers: {
+              "X-Master-Key": this.JSONBIN_MASTER_KEY,
+            },
+          }
+        );
+        const data = await res.json();
+        const { themeList, rankList } = data.record;
+
+        this.themeList = themeList || [];
+        this.rankList = rankList || {};
+
+        if (this.themeList.length > 0) {
+          this.currentThemeId = this.themeList[0].id;
+        }
+        this.$message.success("数据加载成功");
+      } catch (err) {
+        this.$message.error("加载失败");
+        console.error(err);
+      }
+    },
+
+    // ==============================================
+    // 2. 保存所有数据到 JSONBIN
+    // ==============================================
+    async saveAllData() {
+      try {
+        await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Master-Key": this.JSONBIN_MASTER_KEY,
+          },
+          body: JSON.stringify({
+            themeList: this.themeList,
+            rankList: this.rankList,
+          }),
+        });
+        return true;
+      } catch (err) {
+        this.$message.error("保存失败");
+        console.error(err);
+        return false;
+      }
+    },
+
+    // ==============================================
+    // 主题相关
+    // ==============================================
     switchTheme(id) {
       this.currentThemeId = Number(id);
     },
 
-    // 新建主题
     addTheme() {
       this.editThemeId = null;
       this.themeForm.name = "";
       this.themeDialog = true;
     },
-    // 编辑主题
+
     editTheme(item) {
       this.editThemeId = item.id;
       this.themeForm.name = item.name;
       this.themeDialog = true;
     },
-    // 保存主题（新增+编辑通用）
-    saveTheme() {
+
+    async saveTheme() {
       if (!this.themeForm.name) return this.$message.warning("请输入主题名");
 
       if (this.editThemeId) {
@@ -176,64 +221,74 @@ export default {
           (t) => t.id === this.editThemeId
         );
         this.themeList[index].name = this.themeForm.name;
-        this.$message.success("主题修改成功");
       } else {
         // 新增
         const newId = Math.max(...this.themeList.map((t) => t.id), 0) + 1;
         this.themeList.push({ id: newId, name: this.themeForm.name });
         this.rankList[newId] = [];
-        this.$message.success("主题创建成功");
       }
 
-      this.themeDialog = false;
+      const ok = await this.saveAllData();
+      if (ok) {
+        this.$message.success("主题保存成功");
+        this.themeDialog = false;
+      }
     },
-    // 删除主题
-    deleteTheme(id) {
+
+    async deleteTheme(id) {
       this.$confirm("确定删除该主题吗？删除后排名也会清空！", "提示").then(
-        () => {
+        async () => {
           this.themeList = this.themeList.filter((t) => t.id !== id);
           delete this.rankList[id];
 
-          // 如果删除的是当前选中主题，自动切回第一个
           if (this.currentThemeId === id) {
             this.currentThemeId = this.themeList[0]?.id || 0;
           }
-          this.$message.success("主题删除成功");
+
+          const ok = await this.saveAllData();
+          if (ok) this.$message.success("删除成功");
         }
       );
     },
 
-    // 添加排名
+    // ==============================================
+    // 排名相关
+    // ==============================================
     addRankItem() {
       this.editItemId = null;
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
     },
-    // 编辑排名
+
     editItem(row) {
       this.editItemId = row.id;
       this.itemForm = { ...row };
       this.itemDialog = true;
     },
-    // 保存排名
-    saveItem() {
+
+    async saveItem() {
       const list = this.rankList[this.currentThemeId];
       if (this.editItemId) {
         const index = list.findIndex((i) => i.id === this.editItemId);
         list[index] = { ...this.itemForm, id: this.editItemId };
       } else {
-        const newId = Math.max(...list.map((i) => i.id), 0) + 1;
+        const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
         list.push({ ...this.itemForm, id: newId });
       }
-      this.itemDialog = false;
-      this.$message.success("保存成功");
+
+      const ok = await this.saveAllData();
+      if (ok) {
+        this.itemDialog = false;
+        this.$message.success("保存成功");
+      }
     },
-    // 删除排名
-    deleteItem(id) {
-      this.$confirm("确定删除？").then(() => {
+
+    async deleteItem(id) {
+      this.$confirm("确定删除？").then(async () => {
         const list = this.rankList[this.currentThemeId];
         this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
-        this.$message.success("删除成功");
+        const ok = await this.saveAllData();
+        if (ok) this.$message.success("删除成功");
       });
     },
   },
