@@ -44,14 +44,19 @@
       <div class="right">
         <div class="title">
           <span>{{ currentThemeName }}</span>
-          <el-button
-            type="success"
-            icon="el-icon-plus"
-            @click="addRankItem"
-            style="float: right"
-          >
-            添加排名
-          </el-button>
+          <div style="display: flex; gap: 8px">
+            <!-- 新增：保存按钮 → 点击才上传云端 -->
+            <el-button
+              type="success"
+              icon="el-icon-download"
+              @click="handleSaveToCloud"
+            >
+              保存到云端
+            </el-button>
+            <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
+              添加排名
+            </el-button>
+          </div>
         </div>
 
         <el-table :data="currentRankList" border style="width: 100%">
@@ -76,7 +81,11 @@
     </div>
 
     <!-- 主题 新增/编辑 弹窗 -->
-    <el-dialog :visible.sync="themeDialog" title="主题信息">
+    <el-dialog
+      :visible.sync="themeDialog"
+      title="主题信息"
+      :close-on-click-modal="false"
+    >
       <el-input v-model="themeForm.name" placeholder="请输入主题名称" />
       <div slot="footer" class="dialog-footer">
         <el-button @click="themeDialog = false">取消</el-button>
@@ -85,7 +94,11 @@
     </el-dialog>
 
     <!-- 排名编辑弹窗 -->
-    <el-dialog :visible.sync="itemDialog" title="编辑排名">
+    <el-dialog
+      :visible.sync="itemDialog"
+      title="编辑排名"
+      :close-on-click-modal="false"
+    >
       <el-form label-width="80px">
         <el-form-item label="排名">
           <el-input v-model.number="itemForm.rank" type="number" />
@@ -110,8 +123,9 @@ export default {
   name: "App",
   data() {
     return {
-      // ========== JSONBIN 配置（你必须改成自己的！）==========
-      JSONBIN_MASTER_KEY: "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
+      // ========== 改成你自己的 ==========
+      JSONBIN_MASTER_KEY:
+        "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
       JSONBIN_BIN_ID: "6a01e01cc0954111d8098878",
 
       themeList: [],
@@ -137,42 +151,33 @@ export default {
     },
   },
   mounted() {
-    this.loadAllData(); // 页面加载自动拉取云端数据
+    this.loadAllData();
   },
   methods: {
     // ==============================================
-    // 1. 从 JSONBIN 加载所有数据
+    // 加载数据（只进页面时调用一次）
     // ==============================================
     async loadAllData() {
       try {
         const res = await fetch(
           `https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}/latest`,
-          {
-            headers: {
-              "X-Master-Key": this.JSONBIN_MASTER_KEY,
-            },
-          }
+          { headers: { "X-Master-Key": this.JSONBIN_MASTER_KEY } }
         );
         const data = await res.json();
-        const { themeList, rankList } = data.record;
-
-        this.themeList = themeList || [];
-        this.rankList = rankList || {};
-
-        if (this.themeList.length > 0) {
-          this.currentThemeId = this.themeList[0].id;
-        }
-        this.$message.success("数据加载成功");
-      } catch (err) {
+        this.themeList = data.record.themeList || [];
+        this.rankList = data.record.rankList || {};
+        if (this.themeList.length) this.currentThemeId = this.themeList[0].id;
+        this.$message.success("数据加载完成");
+      } catch (e) {
         this.$message.error("加载失败");
-        console.error(err);
       }
     },
 
     // ==============================================
-    // 2. 保存所有数据到 JSONBIN
+    // ✅ 关键：点击【保存到云端】才执行上传
     // ==============================================
-    async saveAllData() {
+    async handleSaveToCloud() {
+      this.$message.info("正在保存到云端...");
       try {
         await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
           method: "PUT",
@@ -185,110 +190,82 @@ export default {
             rankList: this.rankList,
           }),
         });
-        return true;
+        this.$message.success("✅ 所有数据已保存到云端！");
       } catch (err) {
         this.$message.error("保存失败");
-        console.error(err);
-        return false;
       }
     },
 
     // ==============================================
-    // 主题相关
+    // 主题：本地操作，不请求接口
     // ==============================================
     switchTheme(id) {
       this.currentThemeId = Number(id);
     },
-
     addTheme() {
       this.editThemeId = null;
       this.themeForm.name = "";
       this.themeDialog = true;
     },
-
     editTheme(item) {
       this.editThemeId = item.id;
       this.themeForm.name = item.name;
       this.themeDialog = true;
     },
-
-    async saveTheme() {
+    saveTheme() {
       if (!this.themeForm.name) return this.$message.warning("请输入主题名");
-
       if (this.editThemeId) {
-        // 编辑
-        const index = this.themeList.findIndex(
-          (t) => t.id === this.editThemeId
-        );
-        this.themeList[index].name = this.themeForm.name;
+        const idx = this.themeList.findIndex((t) => t.id === this.editThemeId);
+        this.themeList[idx].name = this.themeForm.name;
       } else {
-        // 新增
         const newId = Math.max(...this.themeList.map((t) => t.id), 0) + 1;
         this.themeList.push({ id: newId, name: this.themeForm.name });
         this.rankList[newId] = [];
       }
-
-      const ok = await this.saveAllData();
-      if (ok) {
-        this.$message.success("主题保存成功");
-        this.themeDialog = false;
-      }
+      this.themeDialog = false;
+      this.$message.success("本地保存成功 → 点【保存到云端】同步");
     },
-
-    async deleteTheme(id) {
-      this.$confirm("确定删除该主题吗？删除后排名也会清空！", "提示").then(
-        async () => {
-          this.themeList = this.themeList.filter((t) => t.id !== id);
-          delete this.rankList[id];
-
-          if (this.currentThemeId === id) {
-            this.currentThemeId = this.themeList[0]?.id || 0;
-          }
-
-          const ok = await this.saveAllData();
-          if (ok) this.$message.success("删除成功");
+    deleteTheme(id) {
+      this.$confirm("确定删除该主题吗？").then(() => {
+        this.themeList = this.themeList.filter((t) => t.id !== id);
+        delete this.rankList[id];
+        if (this.currentThemeId === id) {
+          this.currentThemeId = this.themeList[0]?.id || 0;
         }
-      );
+        this.$message.success("本地删除成功 → 点【保存到云端】同步");
+      });
     },
 
     // ==============================================
-    // 排名相关
+    // 排名：本地操作，完全不请求接口！！！
     // ==============================================
     addRankItem() {
       this.editItemId = null;
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
     },
-
     editItem(row) {
       this.editItemId = row.id;
       this.itemForm = { ...row };
       this.itemDialog = true;
     },
-
-    async saveItem() {
+    saveItem() {
       const list = this.rankList[this.currentThemeId];
       if (this.editItemId) {
-        const index = list.findIndex((i) => i.id === this.editItemId);
-        list[index] = { ...this.itemForm, id: this.editItemId };
+        const idx = list.findIndex((i) => i.id === this.editItemId);
+        list[idx] = { ...this.itemForm, id: this.editItemId };
       } else {
         const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
         list.push({ ...this.itemForm, id: newId });
       }
-
-      const ok = await this.saveAllData();
-      if (ok) {
-        this.itemDialog = false;
-        this.$message.success("保存成功");
-      }
+      this.itemDialog = false;
+      this.$message.success("本地保存成功 → 点【保存到云端】同步");
     },
-
-    async deleteItem(id) {
-      this.$confirm("确定删除？").then(async () => {
+    deleteItem(id) {
+      this.$confirm("确定删除？").then(() => {
         const list = this.rankList[this.currentThemeId];
         this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
-        const ok = await this.saveAllData();
-        if (ok) this.$message.success("删除成功");
+        this.$message.success("本地删除成功 → 点【保存到云端】同步");
       });
     },
   },
