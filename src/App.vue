@@ -45,11 +45,13 @@
         <div class="title">
           <span>{{ currentThemeName }}</span>
           <div style="display: flex; gap: 8px">
-            <!-- 新增：保存按钮 → 点击才上传云端 -->
+            <!-- 保存到云端按钮 + 闪烁绑定 -->
             <el-button
               type="success"
               icon="el-icon-upload"
               @click="handleSaveToCloud"
+              :class="{ flash: saveBtnFlash }"
+              :loading="loading"
             >
               保存到云端
             </el-button>
@@ -106,7 +108,8 @@
     >
       <el-form label-width="80px">
         <el-form-item label="排名">
-          <el-input v-model.number="itemForm.rank" type="number" />
+          <!-- <el-input v-model.number="itemForm.rank" type="number" /> -->
+          <el-input-number v-model="itemForm.rank"></el-input-number>
         </el-form-item>
         <el-form-item label="名称">
           <el-input v-model="itemForm.name" />
@@ -129,7 +132,6 @@ export default {
   data() {
     return {
       loading: false,
-      // ========== 改成你自己的 ==========
       JSONBIN_MASTER_KEY:
         "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
       JSONBIN_BIN_ID: "6a01e01cc0954111d8098878",
@@ -145,6 +147,11 @@ export default {
       themeForm: { name: "" },
       itemForm: { rank: "", name: "", desc: "" },
       editItemId: null,
+
+      // 按钮闪烁 + 冷却
+      saveBtnFlash: false,
+      saveBtnCooling: false,
+      flashCooldownSeconds: 3, // 这里改成你想要的秒数，统一管理
     };
   },
   computed: {
@@ -160,9 +167,21 @@ export default {
     this.loadAllData();
   },
   methods: {
-    // ==============================================
-    // 加载数据（只进页面时调用一次）
-    // ==============================================
+    // 触发保存按钮闪烁（自定义秒数冷却）
+    triggerSaveFlash() {
+      if (this.saveBtnCooling) return;
+      this.saveBtnFlash = true;
+      this.saveBtnCooling = true;
+
+      setTimeout(() => {
+        this.saveBtnFlash = false;
+      }, 1500);
+
+      setTimeout(() => {
+        this.saveBtnCooling = false;
+      }, this.flashCooldownSeconds * 1000);
+    },
+
     async loadAllData() {
       try {
         this.loading = true;
@@ -174,19 +193,16 @@ export default {
         this.themeList = data.record.themeList || [];
         this.rankList = data.record.rankList || {};
         if (this.themeList.length) this.currentThemeId = this.themeList[0].id;
-        // this.$message.success("数据加载完成");
         this.loading = false;
       } catch (e) {
         this.$message.error("加载失败");
       }
     },
 
-    // ==============================================
-    // ✅ 关键：点击【保存到云端】才执行上传
-    // ==============================================
     async handleSaveToCloud() {
-      this.$message.info("正在保存到云端...");
+      // this.$message.info("正在保存到云端...");
       try {
+        this.loading = true;
         await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
           method: "PUT",
           headers: {
@@ -198,16 +214,14 @@ export default {
             rankList: this.rankList,
           }),
         });
-        this.$message.success("✅ 所有数据已保存到云端！");
+        this.loading = false;
+        // this.$message.success("所有数据已保存到云端！");
       } catch (err) {
         this.$message.error("保存失败");
         this.loadAllData();
       }
     },
 
-    // ==============================================
-    // 主题：本地操作，不请求接口
-    // ==============================================
     switchTheme(id) {
       this.currentThemeId = Number(id);
     },
@@ -232,7 +246,8 @@ export default {
         this.rankList[newId] = [];
       }
       this.themeDialog = false;
-      this.$message.success("本地保存成功 → 点【保存到云端】同步");
+      // this.$message.success("本地保存成功 → 点【保存到云端】同步");
+      this.triggerSaveFlash();
     },
     deleteTheme(id) {
       this.$confirm("确定删除该主题吗？").then(() => {
@@ -241,21 +256,17 @@ export default {
         if (this.currentThemeId === id) {
           this.currentThemeId = this.themeList[0]?.id || 0;
         }
-        this.$message.success("本地删除成功 → 点【保存到云端】同步");
+        // this.$message.success("本地删除成功 → 点【保存到云端】同步");
+        this.triggerSaveFlash();
       });
     },
 
-    // ==============================================
-    // 排名：本地操作，完全不请求接口！！！
-    // ==============================================
     addRankItem() {
       this.editItemId = null;
-      // 重置清空，防止残留旧描述
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
     },
     editItem(row) {
-      // 关键：深拷贝，不关联原行数据
       this.editItemId = row.id;
       this.itemForm = JSON.parse(JSON.stringify(row));
       this.itemDialog = true;
@@ -263,14 +274,11 @@ export default {
     saveItem() {
       const list = this.rankList[this.currentThemeId];
       if (this.editItemId) {
-        // 编辑：逐个赋值，强制更新视图
         let idx = list.findIndex((i) => i.id === this.editItemId);
         if (idx > -1) {
           list[idx].rank = this.itemForm.rank;
           list[idx].name = this.itemForm.name;
-          // 重点：单独给 desc 赋值，强制响应式更新
           list[idx].desc = this.itemForm.desc;
-          // 强制表格刷新
           this.rankList[this.currentThemeId] = [...list];
         }
       } else {
@@ -282,15 +290,16 @@ export default {
           desc: this.itemForm.desc,
         });
       }
-
       this.itemDialog = false;
-      this.$message.success("本地保存成功 → 点【保存到云端】同步");
+      // this.$message.success("本地保存成功 → 点【保存到云端】同步");
+      this.triggerSaveFlash();
     },
     deleteItem(id) {
       this.$confirm("确定删除？").then(() => {
         const list = this.rankList[this.currentThemeId];
         this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
-        this.$message.success("本地删除成功 → 点【保存到云端】同步");
+        // this.$message.success("本地删除成功 → 点【保存到云端】同步");
+        this.triggerSaveFlash();
       });
     },
   },
@@ -330,5 +339,21 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 按钮闪烁动画 */
+.flash {
+  animation: flashAnim 0.5s ease-in-out 3;
+}
+@keyframes flashAnim {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.06);
+  }
 }
 </style>
