@@ -4,7 +4,7 @@
     style="
       padding: 20px;
       background: #f5f7fa;
-      min-height: calc(100vh - 16px);
+      height: calc(100vh - 16px);
       box-sizing: border-box;
     "
   >
@@ -82,6 +82,7 @@
           :data="currentRankList"
           border
           style="width: 100%"
+          height="calc(100% - 40px)"
         >
           <el-table-column label="排名" prop="rank" width="160" align="center">
             <template slot-scope="scope">
@@ -310,14 +311,16 @@ export default {
       this.triggerSaveFlash();
     },
     deleteTheme(id) {
-      this.$confirm("确定删除该主题吗？").then(() => {
-        this.themeList = this.themeList.filter((t) => t.id !== id);
-        delete this.rankList[id];
-        if (this.currentThemeId === id) {
-          this.currentThemeId = this.themeList[0]?.id || 0;
-        }
-        this.triggerSaveFlash();
-      });
+      this.$confirm("确定删除该主题吗？")
+        .then(() => {
+          this.themeList = this.themeList.filter((t) => t.id !== id);
+          delete this.rankList[id];
+          if (this.currentThemeId === id) {
+            this.currentThemeId = this.themeList[0]?.id || 0;
+          }
+          this.triggerSaveFlash();
+        })
+        .catch(() => {});
     },
     addRankItem() {
       // 极速模式：直接添加空行
@@ -372,9 +375,11 @@ export default {
       if (this.isSpeedMode) {
         this.deleteItemById(id);
       } else {
-        this.$confirm("确定删除？").then(() => {
-          this.deleteItemById(id);
-        });
+        this.$confirm("确定删除？")
+          .then(() => {
+            this.deleteItemById(id);
+          })
+          .catch(() => {});
       }
     },
     deleteItemById(id) {
@@ -390,6 +395,7 @@ export default {
 .layout {
   display: flex;
   max-width: 1200px;
+  height: 100%;
   margin: 0 auto;
   gap: 20px;
 }
