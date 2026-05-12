@@ -214,7 +214,7 @@
 </template>
 
 <script>
-import { JSONBIN_MASTER_KEY, JSONBIN_BIN_ID } from "@/const.js";
+import { JSONBIN_MASTER_KEY, JSONBIN_BIN_ID, ADMIN_PASSWORD } from "@/const.js";
 
 export default {
   name: "App",
@@ -223,6 +223,7 @@ export default {
       loading: false,
       JSONBIN_MASTER_KEY: JSONBIN_MASTER_KEY,
       JSONBIN_BIN_ID: JSONBIN_BIN_ID,
+      ADMIN_PASSWORD: ADMIN_PASSWORD,
 
       themeList: [],
       activeThemeId: "1",
@@ -244,6 +245,9 @@ export default {
 
       // 拖拽
       dragIndex: null,
+
+      // 是否输入过管理员密码
+      hasEnteredAdminPassword: false,
     };
   },
   computed: {
@@ -364,6 +368,31 @@ export default {
     },
 
     async handleSaveToCloud() {
+      if (this.hasEnteredAdminPassword) {
+        // 如果已经输入过管理员密码，直接保存
+        await this.saveToCloud();
+      } else {
+        this.$prompt("请输入管理员密码", "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          inputRequired: true,
+          inputType: "password",
+          inputPattern: /\S/,
+          inputErrorMessage: "密码不能为空",
+        })
+          .then(async ({ value }) => {
+            if (value !== this.ADMIN_PASSWORD) {
+              return this.$message.error("密码错误");
+            } else {
+              this.hasEnteredAdminPassword = true;
+              await this.saveToCloud();
+            }
+          })
+          .catch(() => {});
+      }
+    },
+
+    async saveToCloud() {
       try {
         this.loading = true;
         await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
@@ -378,9 +407,8 @@ export default {
           }),
         });
         this.loading = false;
-      } catch (err) {
+      } catch (e) {
         this.$message.error("保存失败");
-        this.loadAllData();
       }
     },
 
