@@ -145,9 +145,7 @@
                 type="textarea"
                 size="mini"
               ></el-input>
-              <div v-else>
-                {{ scope.row.desc }}
-              </div>
+              <div v-else v-html="getDescText(scope.row.desc)"></div>
             </template>
           </el-table-column>
           <el-table-column
@@ -261,6 +259,9 @@ export default {
     this.loadAllData();
   },
   methods: {
+    getDescText(content) {
+      return this.$lr.lr(content.replace(/<\/?[^>]+>/gi, " "));
+    },
     // ========== 拖拽（加了阻止选中） ==========
     startDrag(e, index) {
       // 关键：拖拽开始时阻止默认选中
