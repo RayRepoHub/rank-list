@@ -211,7 +211,7 @@ export default {
       // 按钮闪烁 + 冷却
       saveBtnFlash: false,
       saveBtnCooling: false,
-      flashCooldownSeconds: 3, // 这里改成你想要的秒数，统一管理
+      flashCooldownSeconds: 20, // 这里改成你想要的秒数，统一管理
       isSpeedMode: false, // 是否为极速模式
     };
   },
@@ -319,8 +319,24 @@ export default {
         this.triggerSaveFlash();
       });
     },
-
     addRankItem() {
+      // 极速模式：直接添加空行
+      if (this.isSpeedMode) {
+        const list = this.rankList[this.currentThemeId] || [];
+        const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
+
+        list.push({
+          id: newId,
+          rank: "",
+          name: "",
+          desc: "",
+        });
+
+        this.rankList[this.currentThemeId] = [...list];
+        return;
+      }
+
+      // 非极速模式：弹窗
       this.editItemId = null;
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
