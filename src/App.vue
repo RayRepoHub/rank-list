@@ -95,7 +95,17 @@
           border
           style="width: 100%"
           height="calc(100% - 40px)"
+          row-key="id"
         >
+          <el-table-column label="" prop="" width="40" align="center">
+            <template slot-scope="scope">
+              <i
+                class="el-icon-rank"
+                style="cursor: move"
+                @mousedown="startDrag($event, scope.$index)"
+              ></i>
+            </template>
+          </el-table-column>
           <el-table-column label="排名" prop="rank" width="160" align="center">
             <template slot-scope="scope">
               <el-input-number
@@ -109,7 +119,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="名称" prop="name" width="320">
+          <el-table-column label="名称" prop="name" width="200">
             <template slot-scope="scope">
               <el-input
                 v-if="isSpeedMode"
@@ -224,8 +234,11 @@ export default {
       // 按钮闪烁 + 冷却
       saveBtnFlash: false,
       saveBtnCooling: false,
-      flashCooldownSeconds: 20, // 这里改成你想要的秒数，统一管理
-      isSpeedMode: false, // 是否为极速模式
+      flashCooldownSeconds: 20,
+      isSpeedMode: false,
+
+      // 拖拽
+      dragIndex: null,
     };
   },
   computed: {
@@ -241,6 +254,44 @@ export default {
     this.loadAllData();
   },
   methods: {
+    // ========== 拖拽（加了阻止选中） ==========
+    startDrag(e, index) {
+      // 关键：拖拽开始时阻止默认选中
+      e.preventDefault();
+      this.dragIndex = index;
+      document.addEventListener("mousemove", this.onDragMove);
+      document.addEventListener("mouseup", this.onDragEnd);
+    },
+    onDragMove(e) {
+      if (this.dragIndex == null) return;
+      // 关键：移动时继续阻止选中
+      e.preventDefault();
+      const rows = document.querySelectorAll(
+        ".el-table__body-wrapper tbody tr"
+      );
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect();
+        if (e.clientY > rect.top && e.clientY < rect.bottom) {
+          if (this.dragIndex !== i) {
+            const data = [...this.currentRankList];
+            const moveItem = data.splice(this.dragIndex, 1)[0];
+            data.splice(i, 0, moveItem);
+            this.rankList[this.currentThemeId] = data;
+            this.dragIndex = i;
+          }
+          break;
+        }
+      }
+    },
+    onDragEnd() {
+      if (this.dragIndex != null) {
+        this.triggerSaveFlash();
+      }
+      this.dragIndex = null;
+      document.removeEventListener("mousemove", this.onDragMove);
+      document.removeEventListener("mouseup", this.onDragEnd);
+    },
+
     // 根据排名数字从小到大排序，空值排在最前面
     sortRankListByRankNumber() {
       const list = this.currentRankList;
@@ -250,11 +301,9 @@ export default {
         let rankA = a.rank ?? "";
         let rankB = b.rank ?? "";
 
-        // 空 rank 排最前面
         if (rankA === "" && rankB !== "") return -1;
         if (rankA !== "" && rankB === "") return 1;
 
-        // 数字从小到大
         return Number(rankA) - Number(rankB);
       });
 
@@ -274,7 +323,7 @@ export default {
       this.rankList[this.currentThemeId] = updated;
       this.triggerSaveFlash();
     },
-    // 触发保存按钮闪烁（自定义秒数冷却）
+    // 触发保存按钮闪烁
     triggerSaveFlash() {
       if (this.saveBtnCooling) return;
       this.saveBtnFlash = true;
@@ -307,7 +356,6 @@ export default {
     },
 
     async handleSaveToCloud() {
-      // this.$message.info("正在保存到云端...");
       try {
         this.loading = true;
         await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
@@ -322,7 +370,6 @@ export default {
           }),
         });
         this.loading = false;
-        // this.$message.success("所有数据已保存到云端！");
       } catch (err) {
         this.$message.error("保存失败");
         this.loadAllData();
@@ -368,23 +415,13 @@ export default {
         .catch(() => {});
     },
     addRankItem() {
-      // 极速模式：直接添加空行
       if (this.isSpeedMode) {
         const list = this.rankList[this.currentThemeId] || [];
         const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
-
-        list.push({
-          id: newId,
-          rank: "",
-          name: "",
-          desc: "",
-        });
-
+        list.push({ id: newId, rank: "", name: "", desc: "" });
         this.rankList[this.currentThemeId] = [...list];
         return;
       }
-
-      // 非极速模式：弹窗
       this.editItemId = null;
       this.itemForm = { rank: "", name: "", desc: "" };
       this.itemDialog = true;
@@ -470,6 +507,26 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* ========== 终极禁止选中：覆盖所有单元格+子元素 ========== */
+.el-table__body-wrapper,
+.el-table__body,
+.el-table__body tr,
+.el-table__body td,
+.el-table__body td div {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.el-icon-rank {
+  cursor: move !important;
+}
+.el-table__body-wrapper tr:active {
+  opacity: 0.7;
+  background: #e8f4ff !important;
 }
 
 /* 按钮闪烁动画 */
