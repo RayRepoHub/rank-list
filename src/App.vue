@@ -52,7 +52,7 @@
       <div class="right">
         <div class="title">
           <span>{{ currentThemeName }}</span>
-          <div style="display: flex; gap: 8px">
+          <div style="display: flex; align-items: center; gap: 8px">
             <!-- 保存到云端按钮 + 闪烁绑定 -->
             <el-button
               type="success"
@@ -66,6 +66,14 @@
             <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
               排名
             </el-button>
+            <!-- 极速模式 -->
+            <el-switch
+              v-model="isSpeedMode"
+              active-color="#13ce66"
+              inactive-color="#ff4949"
+              active-text="极速模式"
+            >
+            </el-switch>
           </div>
         </div>
 
@@ -75,20 +83,65 @@
           border
           style="width: 100%"
         >
-          <el-table-column label="排名" prop="rank" width="80" align="center" />
-          <el-table-column label="名称" prop="name" />
-          <el-table-column label="描述" prop="desc" />
-          <el-table-column label="操作" width="180" align="center">
+          <el-table-column label="排名" prop="rank" width="160" align="center">
             <template slot-scope="scope">
-              <el-button size="mini" type="primary" @click="editItem(scope.row)"
-                >编辑</el-button
+              <el-input-number
+                v-if="isSpeedMode"
+                v-model="scope.row.rank"
+                size="mini"
+                controls-position="right"
+              ></el-input-number>
+              <div v-else>
+                {{ scope.row.rank }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="名称" prop="name" width="320">
+            <template slot-scope="scope">
+              <el-input
+                v-if="isSpeedMode"
+                v-model="scope.row.name"
+                size="mini"
+              ></el-input>
+              <div v-else>
+                {{ scope.row.name }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="描述" prop="desc">
+            <template slot-scope="scope">
+              <el-input
+                v-if="isSpeedMode"
+                v-model="scope.row.desc"
+                type="textarea"
+                size="mini"
+              ></el-input>
+              <div v-else>
+                {{ scope.row.desc }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            :width="isSpeedMode ? '90' : '180'"
+            align="center"
+          >
+            <template slot-scope="scope">
+              <el-button
+                v-if="!isSpeedMode"
+                size="mini"
+                type="primary"
+                @click="editItem(scope.row)"
               >
+                编辑
+              </el-button>
               <el-button
                 size="mini"
                 type="danger"
                 @click="deleteItem(scope.row.id)"
-                >删除</el-button
               >
+                删除
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -116,7 +169,6 @@
     >
       <el-form label-width="80px">
         <el-form-item label="排名">
-          <!-- <el-input v-model.number="itemForm.rank" type="number" /> -->
           <el-input-number v-model="itemForm.rank"></el-input-number>
         </el-form-item>
         <el-form-item label="名称">
@@ -160,6 +212,7 @@ export default {
       saveBtnFlash: false,
       saveBtnCooling: false,
       flashCooldownSeconds: 3, // 这里改成你想要的秒数，统一管理
+      isSpeedMode: false, // 是否为极速模式
     };
   },
   computed: {
@@ -254,7 +307,6 @@ export default {
         this.rankList[newId] = [];
       }
       this.themeDialog = false;
-      // this.$message.success("本地保存成功 → 点【保存到云端】同步");
       this.triggerSaveFlash();
     },
     deleteTheme(id) {
@@ -264,7 +316,6 @@ export default {
         if (this.currentThemeId === id) {
           this.currentThemeId = this.themeList[0]?.id || 0;
         }
-        // this.$message.success("本地删除成功 → 点【保存到云端】同步");
         this.triggerSaveFlash();
       });
     },
@@ -299,16 +350,21 @@ export default {
         });
       }
       this.itemDialog = false;
-      // this.$message.success("本地保存成功 → 点【保存到云端】同步");
       this.triggerSaveFlash();
     },
     deleteItem(id) {
-      this.$confirm("确定删除？").then(() => {
-        const list = this.rankList[this.currentThemeId];
-        this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
-        // this.$message.success("本地删除成功 → 点【保存到云端】同步");
-        this.triggerSaveFlash();
-      });
+      if (this.isSpeedMode) {
+        this.deleteItemById(id);
+      } else {
+        this.$confirm("确定删除？").then(() => {
+          this.deleteItemById(id);
+        });
+      }
+    },
+    deleteItemById(id) {
+      const list = this.rankList[this.currentThemeId];
+      this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
+      this.triggerSaveFlash();
     },
   },
 };
