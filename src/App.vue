@@ -1,5 +1,13 @@
 <template>
-  <div id="app" style="padding: 20px; background: #f5f7fa; min-height: 100vh">
+  <div
+    id="app"
+    style="
+      padding: 20px;
+      background: #f5f7fa;
+      min-height: calc(100vh - 16px);
+      box-sizing: border-box;
+    "
+  >
     <div class="layout">
       <!-- 左侧：主题管理 -->
       <div class="left">
@@ -10,7 +18,7 @@
           @click="addTheme"
           style="width: 100%; margin-bottom: 10px"
         >
-          新建主题
+          主题
         </el-button>
 
         <el-menu :default-active="activeThemeId" class="menu">
@@ -56,7 +64,7 @@
               保存到云端
             </el-button>
             <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
-              添加排名
+              排名
             </el-button>
           </div>
         </div>
