@@ -66,6 +66,18 @@
             <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
               排名
             </el-button>
+            <el-dropdown
+              split-button
+              type="primary"
+              @click="sortRankListByRankNumber"
+            >
+              排名整理
+              <el-dropdown-menu slot="dropdown">
+                <el-dropdown-item @click.native="sortRankListByPosition">
+                  以位置为准
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </el-dropdown>
             <!-- 极速模式 -->
             <el-switch
               v-model="isSpeedMode"
@@ -229,6 +241,39 @@ export default {
     this.loadAllData();
   },
   methods: {
+    // 根据排名数字从小到大排序，空值排在最前面
+    sortRankListByRankNumber() {
+      const list = this.currentRankList;
+      if (!list || list.length === 0) return;
+
+      const sorted = [...list].sort((a, b) => {
+        let rankA = a.rank ?? "";
+        let rankB = b.rank ?? "";
+
+        // 空 rank 排最前面
+        if (rankA === "" && rankB !== "") return -1;
+        if (rankA !== "" && rankB === "") return 1;
+
+        // 数字从小到大
+        return Number(rankA) - Number(rankB);
+      });
+
+      this.rankList[this.currentThemeId] = sorted;
+      this.triggerSaveFlash();
+    },
+
+    // 根据当前列表的位置，重新设置 rank 从 1 开始递增
+    sortRankListByPosition() {
+      const list = this.currentRankList;
+      if (!list || list.length === 0) return;
+
+      const updated = list.map((item, index) => {
+        return { ...item, rank: index + 1 };
+      });
+
+      this.rankList[this.currentThemeId] = updated;
+      this.triggerSaveFlash();
+    },
     // 触发保存按钮闪烁（自定义秒数冷却）
     triggerSaveFlash() {
       if (this.saveBtnCooling) return;
