@@ -2,7 +2,7 @@
  * @Author: YangRui
  * @Date: 2026-05-11 18:20:29
  * @LastEditors: YangRui
- * @LastEditTime: 2026-05-11 18:29:00
+ * @LastEditTime: 2026-05-12 19:29:50
  * @Description: 请输入
  */
 import Vue from 'vue'
@@ -11,6 +11,7 @@ import App from './App.vue'
 // 👇 这两行就是引入 ElementUI
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
+import "@/scss/global.scss"
 
 // 👇 让 Vue 使用 ElementUI
 Vue.use(ElementUI)

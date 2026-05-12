@@ -28,7 +28,13 @@
             :index="item.id + ''"
             @click="switchTheme(item.id)"
           >
-            <span style="flex: 1">{{ item.name }}</span>
+            <span
+              style="flex: 1"
+              class="text-ellipsis-single"
+              :title="item.name"
+            >
+              {{ item.name }}
+            </span>
             <div style="display: flex; gap: 5px">
               <el-button
                 size="mini"
@@ -210,14 +216,15 @@
 </template>
 
 <script>
+import { JSONBIN_MASTER_KEY, JSONBIN_BIN_ID } from "@/const.js";
+
 export default {
   name: "App",
   data() {
     return {
       loading: false,
-      JSONBIN_MASTER_KEY:
-        "$2a$10$Z9GMvjcEgBICbobvUeAOp.m7Wg/8FiUiblHXiv7XfVrpxAMEwOz3W",
-      JSONBIN_BIN_ID: "6a01e01cc0954111d8098878",
+      JSONBIN_MASTER_KEY: JSONBIN_MASTER_KEY,
+      JSONBIN_BIN_ID: JSONBIN_BIN_ID,
 
       themeList: [],
       activeThemeId: "1",
