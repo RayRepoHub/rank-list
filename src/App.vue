@@ -112,6 +112,7 @@
           height="calc(100% - 45px)"
           row-key="id"
           stripe
+          :row-class-name="tableRowClassName"
         >
           <el-table-column label="" prop="" width="40" align="center">
             <template slot-scope="scope">
@@ -276,10 +277,16 @@ export default {
       return this.$lr.lr(content.replace(/<\/?[^>]+>/gi, " "));
     },
 
+    tableRowClassName({ rowIndex }) {
+      if (this.dragIndex === rowIndex && this.dragIndex !== null) {
+        return "dragging-row";
+      }
+      return "";
+    },
+
     startDrag(e, index) {
       e.preventDefault();
       this.dragIndex = index;
-      // 同时监听鼠标 + 触摸
       document.addEventListener("mousemove", this.onDragMove);
       document.addEventListener("mouseup", this.onDragEnd);
       document.addEventListener("touchmove", this.onDragMove);
@@ -289,9 +296,7 @@ export default {
       if (this.dragIndex == null) return;
       e.preventDefault();
 
-      // 兼容鼠标 / 触摸坐标
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
       const list = this.currentRankList;
       if (!list || list.length <= 1) return;
 
@@ -319,7 +324,6 @@ export default {
         this.triggerSaveFlash();
       }
       this.dragIndex = null;
-      // 移除所有监听
       document.removeEventListener("mousemove", this.onDragMove);
       document.removeEventListener("mouseup", this.onDragEnd);
       document.removeEventListener("touchmove", this.onDragMove);
@@ -459,7 +463,6 @@ export default {
         const newId = max + 1;
         this.themeList.push({ id: newId, name });
         this.rankList[newId] = [];
-
         this.switchTheme(newId);
       }
       this.themeDialog = false;
@@ -607,6 +610,15 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 拖拽终极高亮：深色底 + 文字加粗 + 上浮 + 阴影 */
+::v-deep .el-table .dragging-row {
+  background-color: #a8d1ff !important;
+  font-weight: bold !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.2s ease !important;
 }
 
 /* ====================== 移动端 / iPad 适配 ====================== */
