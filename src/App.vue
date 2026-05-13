@@ -79,11 +79,7 @@
             >
               保存到云端
             </el-button>
-            <el-button
-              type="primary"
-              icon="el-icon-plus"
-              @click="addRankItem"
-            >
+            <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
               排名
             </el-button>
             <el-dropdown
@@ -123,6 +119,7 @@
                 class="el-icon-rank"
                 style="cursor: move"
                 @mousedown="(e) => startDrag(e, scope.$index)"
+                @touchstart.prevent="(e) => startDrag(e, scope.$index)"
               ></i>
             </template>
           </el-table-column>
@@ -282,12 +279,18 @@ export default {
     startDrag(e, index) {
       e.preventDefault();
       this.dragIndex = index;
+      // 同时监听鼠标 + 触摸
       document.addEventListener("mousemove", this.onDragMove);
       document.addEventListener("mouseup", this.onDragEnd);
+      document.addEventListener("touchmove", this.onDragMove);
+      document.addEventListener("touchend", this.onDragEnd);
     },
     onDragMove(e) {
       if (this.dragIndex == null) return;
       e.preventDefault();
+
+      // 兼容鼠标 / 触摸坐标
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
       const list = this.currentRankList;
       if (!list || list.length <= 1) return;
@@ -297,7 +300,7 @@ export default {
 
       for (let i = 0; i < rows.length; i++) {
         const rect = rows[i].getBoundingClientRect();
-        if (e.clientY > rect.top && e.clientY < rect.bottom) {
+        if (clientY > rect.top && clientY < rect.bottom) {
           targetIndex = i;
           break;
         }
@@ -316,8 +319,11 @@ export default {
         this.triggerSaveFlash();
       }
       this.dragIndex = null;
+      // 移除所有监听
       document.removeEventListener("mousemove", this.onDragMove);
       document.removeEventListener("mouseup", this.onDragEnd);
+      document.removeEventListener("touchmove", this.onDragMove);
+      document.removeEventListener("touchend", this.onDragEnd);
     },
 
     sortRankListByRankNumber() {
@@ -639,6 +645,7 @@ body {
 
 .el-icon-rank {
   cursor: move !important;
+  touch-action: none !important;
 }
 
 /* 按钮闪烁 */
