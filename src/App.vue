@@ -59,7 +59,6 @@
         <div class="title">
           <span>{{ currentThemeName }}</span>
           <div style="display: flex; align-items: center; gap: 8px">
-            <!-- 保存到云端按钮 + 闪烁绑定 -->
             <el-button
               type="success"
               icon="el-icon-upload"
@@ -84,7 +83,6 @@
                 </el-dropdown-item>
               </el-dropdown-menu>
             </el-dropdown>
-            <!-- 极速模式 -->
             <el-switch
               v-model="isSpeedMode"
               active-color="#13ce66"
@@ -102,49 +100,53 @@
           style="width: 100%"
           height="calc(100% - 40px)"
           row-key="id"
+          stripe
         >
           <el-table-column label="" prop="" width="40" align="center">
             <template slot-scope="scope">
               <i
                 class="el-icon-rank"
                 style="cursor: move"
-                @mousedown="startDrag($event, scope.$index)"
+                @mousedown="(e) => startDrag(e, scope.$index)"
               ></i>
             </template>
           </el-table-column>
           <el-table-column label="排名" prop="rank" width="160" align="center">
             <template slot-scope="scope">
-              <el-input-number
-                v-if="isSpeedMode"
-                v-model="scope.row.rank"
-                size="mini"
-                controls-position="right"
-              ></el-input-number>
-              <div v-else>
-                {{ scope.row.rank }}
+              <div v-if="isSpeedMode" style="width: 100%">
+                <el-input-number
+                  v-model="scope.row.rank"
+                  size="mini"
+                  controls-position="right"
+                  style="width: 100%"
+                ></el-input-number>
               </div>
+              <div v-else>{{ scope.row.rank }}</div>
             </template>
           </el-table-column>
           <el-table-column label="名称" prop="name" width="200">
             <template slot-scope="scope">
-              <el-input
-                v-if="isSpeedMode"
-                v-model="scope.row.name"
-                size="mini"
-              ></el-input>
-              <div v-else>
-                {{ scope.row.name }}
+              <div v-if="isSpeedMode">
+                <el-input
+                  v-model="scope.row.name"
+                  size="mini"
+                  style="width: 100%"
+                ></el-input>
               </div>
+              <div v-else>{{ scope.row.name }}</div>
             </template>
           </el-table-column>
           <el-table-column label="描述" prop="desc">
             <template slot-scope="scope">
-              <el-input
-                v-if="isSpeedMode"
-                v-model="scope.row.desc"
-                type="textarea"
-                size="mini"
-              ></el-input>
+              <div v-if="isSpeedMode">
+                <el-input
+                  v-model="scope.row.desc"
+                  type="textarea"
+                  size="mini"
+                  :rows="1"
+                  style="width: 100%"
+                ></el-input>
+              </div>
               <div v-else v-html="getDescText(scope.row.desc)"></div>
             </template>
           </el-table-column>
@@ -175,7 +177,6 @@
       </div>
     </div>
 
-    <!-- 主题 新增/编辑 弹窗 -->
     <el-dialog
       :visible.sync="themeDialog"
       title="主题信息"
@@ -188,7 +189,6 @@
       </div>
     </el-dialog>
 
-    <!-- 排名编辑弹窗 -->
     <el-dialog
       :visible.sync="itemDialog"
       title="编辑排名"
@@ -237,16 +237,12 @@ export default {
       itemForm: { rank: "", name: "", desc: "" },
       editItemId: null,
 
-      // 按钮闪烁 + 冷却
       saveBtnFlash: false,
       saveBtnCooling: false,
       flashCooldownSeconds: 20,
       isSpeedMode: false,
 
-      // 拖拽
       dragIndex: null,
-
-      // 是否输入过管理员密码
       hasEnteredAdminPassword: false,
     };
   },
@@ -264,11 +260,11 @@ export default {
   },
   methods: {
     getDescText(content) {
+      if (!content) return "";
       return this.$lr.lr(content.replace(/<\/?[^>]+>/gi, " "));
     },
-    // ========== 拖拽（加了阻止选中） ==========
+
     startDrag(e, index) {
-      // 关键：拖拽开始时阻止默认选中
       e.preventDefault();
       this.dragIndex = index;
       document.addEventListener("mousemove", this.onDragMove);
@@ -276,23 +272,28 @@ export default {
     },
     onDragMove(e) {
       if (this.dragIndex == null) return;
-      // 关键：移动时继续阻止选中
       e.preventDefault();
-      const rows = document.querySelectorAll(
-        ".el-table__body-wrapper tbody tr"
-      );
+
+      const list = this.currentRankList;
+      if (!list || list.length <= 1) return;
+
+      const rows = document.querySelectorAll(".el-table__body-wrapper tr");
+      let targetIndex = this.dragIndex;
+
       for (let i = 0; i < rows.length; i++) {
         const rect = rows[i].getBoundingClientRect();
         if (e.clientY > rect.top && e.clientY < rect.bottom) {
-          if (this.dragIndex !== i) {
-            const data = [...this.currentRankList];
-            const moveItem = data.splice(this.dragIndex, 1)[0];
-            data.splice(i, 0, moveItem);
-            this.rankList[this.currentThemeId] = data;
-            this.dragIndex = i;
-          }
+          targetIndex = i;
           break;
         }
+      }
+
+      if (targetIndex !== this.dragIndex) {
+        const data = [...list];
+        const moveItem = data.splice(this.dragIndex, 1)[0];
+        data.splice(targetIndex, 0, moveItem);
+        this.rankList[this.currentThemeId] = data;
+        this.dragIndex = targetIndex;
       }
     },
     onDragEnd() {
@@ -304,50 +305,36 @@ export default {
       document.removeEventListener("mouseup", this.onDragEnd);
     },
 
-    // 根据排名数字从小到大排序，空值排在最前面
     sortRankListByRankNumber() {
       const list = this.currentRankList;
       if (!list || list.length === 0) return;
-
       const sorted = [...list].sort((a, b) => {
         let rankA = a.rank ?? "";
         let rankB = b.rank ?? "";
-
-        if (rankA === "" && rankB !== "") return -1;
-        if (rankA !== "" && rankB === "") return 1;
-
+        if (rankA === "") return -1;
+        if (rankB === "") return 1;
         return Number(rankA) - Number(rankB);
       });
-
       this.rankList[this.currentThemeId] = sorted;
       this.triggerSaveFlash();
     },
-
-    // 根据当前列表的位置，重新设置 rank 从 1 开始递增
     sortRankListByPosition() {
       const list = this.currentRankList;
       if (!list || list.length === 0) return;
-
-      const updated = list.map((item, index) => {
-        return { ...item, rank: index + 1 };
-      });
-
+      const updated = list.map((item, index) => ({ ...item, rank: index + 1 }));
       this.rankList[this.currentThemeId] = updated;
       this.triggerSaveFlash();
     },
-    // 触发保存按钮闪烁
+
     triggerSaveFlash() {
       if (this.saveBtnCooling) return;
       this.saveBtnFlash = true;
       this.saveBtnCooling = true;
-
-      setTimeout(() => {
-        this.saveBtnFlash = false;
-      }, 1500);
-
-      setTimeout(() => {
-        this.saveBtnCooling = false;
-      }, this.flashCooldownSeconds * 1000);
+      setTimeout(() => (this.saveBtnFlash = false), 1500);
+      setTimeout(
+        () => (this.saveBtnCooling = false),
+        this.flashCooldownSeconds * 1000
+      );
     },
 
     async loadAllData() {
@@ -360,61 +347,73 @@ export default {
         const data = await res.json();
         this.themeList = data.record.themeList || [];
         this.rankList = data.record.rankList || {};
-        if (this.themeList.length) this.currentThemeId = this.themeList[0].id;
-        this.loading = false;
+        if (this.themeList.length) {
+          this.currentThemeId = this.themeList[0].id;
+          this.activeThemeId = this.currentThemeId + "";
+        }
       } catch (e) {
         this.$message.error("加载失败");
+      } finally {
+        this.loading = false;
       }
     },
 
     async handleSaveToCloud() {
       if (this.hasEnteredAdminPassword) {
-        // 如果已经输入过管理员密码，直接保存
         await this.saveToCloud();
-      } else {
-        this.$prompt("请输入管理员密码", "提示", {
-          confirmButtonText: "确定",
-          cancelButtonText: "取消",
-          inputRequired: true,
-          inputType: "password",
-          inputPattern: /\S/,
-          inputErrorMessage: "密码不能为空",
-        })
-          .then(async ({ value }) => {
-            if (value !== this.ADMIN_PASSWORD) {
-              return this.$message.error("密码错误");
-            } else {
-              this.hasEnteredAdminPassword = true;
-              await this.saveToCloud();
-            }
-          })
-          .catch(() => {});
+        return;
       }
+
+      this.$prompt("请输入管理员密码", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        inputRequired: true,
+        inputType: "password",
+        inputPattern: /\S/,
+        inputErrorMessage: "密码不能为空",
+      })
+        .then(async ({ value }) => {
+          if (value !== this.ADMIN_PASSWORD) {
+            this.$message.error("密码错误");
+          } else {
+            this.hasEnteredAdminPassword = true;
+            await this.saveToCloud();
+          }
+        })
+        .catch(() => {});
     },
 
     async saveToCloud() {
       try {
         this.loading = true;
-        await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Master-Key": this.JSONBIN_MASTER_KEY,
-          },
-          body: JSON.stringify({
-            themeList: this.themeList,
-            rankList: this.rankList,
-          }),
-        });
-        this.loading = false;
+        const res = await fetch(
+          `https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Master-Key": this.JSONBIN_MASTER_KEY,
+            },
+            body: JSON.stringify({
+              themeList: this.themeList,
+              rankList: this.rankList,
+            }),
+          }
+        );
+        if (!res.ok) throw new Error("保存失败");
+        this.$message.success("保存成功");
       } catch (e) {
         this.$message.error("保存失败");
+      } finally {
+        this.loading = false;
       }
     },
 
     switchTheme(id) {
       this.currentThemeId = Number(id);
+      this.activeThemeId = id + "";
     },
+
     addTheme() {
       this.editThemeId = null;
       this.themeForm.name = "";
@@ -426,14 +425,22 @@ export default {
       this.themeDialog = true;
     },
     saveTheme() {
-      if (!this.themeForm.name) return this.$message.warning("请输入主题名");
+      const name = (this.themeForm.name || "").trim();
+      if (!name) return this.$message.warning("请输入主题名");
+
       if (this.editThemeId) {
         const idx = this.themeList.findIndex((t) => t.id === this.editThemeId);
-        this.themeList[idx].name = this.themeForm.name;
+        if (idx > -1) this.themeList[idx].name = name;
       } else {
-        const newId = Math.max(...this.themeList.map((t) => t.id), 0) + 1;
-        this.themeList.push({ id: newId, name: this.themeForm.name });
+        const max = this.themeList.length
+          ? Math.max(...this.themeList.map((t) => t.id))
+          : 0;
+        const newId = max + 1;
+        this.themeList.push({ id: newId, name });
         this.rankList[newId] = [];
+
+        // ✅ 修复：新建主题后自动切换过去
+        this.switchTheme(newId);
       }
       this.themeDialog = false;
       this.triggerSaveFlash();
@@ -443,19 +450,35 @@ export default {
         .then(() => {
           this.themeList = this.themeList.filter((t) => t.id !== id);
           delete this.rankList[id];
-          if (this.currentThemeId === id) {
-            this.currentThemeId = this.themeList[0]?.id || 0;
+
+          // ✅ 修复：删完后如果还有主题，自动切第一个
+          if (this.themeList.length > 0) {
+            const firstId = this.themeList[0].id;
+            this.currentThemeId = firstId;
+            this.activeThemeId = firstId + "";
+          } else {
+            // 没有主题了，清空
+            this.currentThemeId = 0;
+            this.activeThemeId = "";
           }
           this.triggerSaveFlash();
         })
         .catch(() => {});
     },
+
     addRankItem() {
+      // ✅ 修复：没有选中主题时不让添加
+      if (!this.currentThemeId) {
+        this.$message.warning("请先选择或创建一个主题");
+        return;
+      }
+
+      const list = this.rankList[this.currentThemeId] || [];
       if (this.isSpeedMode) {
-        const list = this.rankList[this.currentThemeId] || [];
-        const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
+        const newId =
+          (list.length ? Math.max(...list.map((i) => i.id || 0)) : 0) + 1;
         list.push({ id: newId, rank: "", name: "", desc: "" });
-        this.rankList[this.currentThemeId] = [...list];
+        this.rankList[this.currentThemeId] = list;
         return;
       }
       this.editItemId = null;
@@ -464,44 +487,34 @@ export default {
     },
     editItem(row) {
       this.editItemId = row.id;
-      this.itemForm = JSON.parse(JSON.stringify(row));
+      this.itemForm = { ...row };
       this.itemDialog = true;
     },
     saveItem() {
       const list = this.rankList[this.currentThemeId];
+      if (!list) return;
+
       if (this.editItemId) {
-        let idx = list.findIndex((i) => i.id === this.editItemId);
-        if (idx > -1) {
-          list[idx].rank = this.itemForm.rank;
-          list[idx].name = this.itemForm.name;
-          list[idx].desc = this.itemForm.desc;
-          this.rankList[this.currentThemeId] = [...list];
-        }
+        const idx = list.findIndex((i) => i.id === this.editItemId);
+        if (idx > -1) list[idx] = { ...this.itemForm };
       } else {
-        const newId = Math.max(...list.map((i) => i.id || 0), 0) + 1;
-        list.push({
-          id: newId,
-          rank: this.itemForm.rank,
-          name: this.itemForm.name,
-          desc: this.itemForm.desc,
-        });
+        const newId =
+          (list.length ? Math.max(...list.map((i) => i.id)) : 0) + 1;
+        list.push({ ...this.itemForm, id: newId });
       }
       this.itemDialog = false;
       this.triggerSaveFlash();
     },
     deleteItem(id) {
-      if (this.isSpeedMode) {
-        this.deleteItemById(id);
-      } else {
-        this.$confirm("确定删除？")
-          .then(() => {
-            this.deleteItemById(id);
-          })
-          .catch(() => {});
-      }
+      this.$confirm("确定删除？")
+        .then(() => {
+          this.deleteItemById(id);
+        })
+        .catch(() => {});
     },
     deleteItemById(id) {
       const list = this.rankList[this.currentThemeId];
+      if (!list) return;
       this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
       this.triggerSaveFlash();
     },
@@ -522,14 +535,16 @@ export default {
   background: #fff;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 10px #00000010;
+  box-shadow: 0 2px 10px #0000010;
 }
 .right {
   flex: 1;
   background: #fff;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 10px #00000010;
+  box-shadow: 0 2px 10px #0000010;
+  display: flex;
+  flex-direction: column;
 }
 .title {
   font-size: 18px;
@@ -545,27 +560,17 @@ export default {
   align-items: center;
 }
 
-/* ========== 终极禁止选中：覆盖所有单元格+子元素 ========== */
-.el-table__body-wrapper,
-.el-table__body,
-.el-table__body tr,
-.el-table__body td,
-.el-table__body td div {
+/* 禁止选中 */
+::v-deep .el-table__body-wrapper * {
   user-select: none !important;
   -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
 }
 
 .el-icon-rank {
   cursor: move !important;
 }
-.el-table__body-wrapper tr:active {
-  opacity: 0.7;
-  background: #e8f4ff !important;
-}
 
-/* 按钮闪烁动画 */
+/* 按钮闪烁 */
 .flash {
   animation: flashAnim 0.5s ease-in-out 3;
 }
