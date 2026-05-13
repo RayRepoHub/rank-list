@@ -4,7 +4,8 @@
     style="
       padding: 20px;
       background: #f5f7fa;
-      height: calc(100vh - 16px);
+      height: 100vh;
+      overflow: hidden;
       box-sizing: border-box;
     "
   >
@@ -21,44 +22,54 @@
           主题
         </el-button>
 
-        <el-menu :default-active="activeThemeId" class="menu">
-          <el-menu-item
-            v-for="item in themeList"
-            :key="item.id"
-            :index="item.id + ''"
-            @click="switchTheme(item.id)"
-          >
-            <span
-              style="flex: 1"
-              class="text-ellipsis-single"
-              :title="item.name"
+        <!-- 列表区域：单独滚动 -->
+        <div class="menu-container">
+          <el-menu :default-active="activeThemeId" class="menu">
+            <el-menu-item
+              v-for="item in themeList"
+              :key="item.id"
+              :index="item.id + ''"
+              @click="switchTheme(item.id)"
             >
-              {{ item.name }}
-            </span>
-            <div style="display: flex; gap: 5px">
-              <el-button
-                size="mini"
-                icon="el-icon-edit"
-                type="text"
-                @click.stop="editTheme(item)"
-              ></el-button>
-              <el-button
-                size="mini"
-                icon="el-icon-delete"
-                type="text"
-                style="color: #f56c6c"
-                @click.stop="deleteTheme(item.id)"
-              ></el-button>
-            </div>
-          </el-menu-item>
-        </el-menu>
+              <span
+                style="flex: 1"
+                class="text-ellipsis-single"
+                :title="item.name"
+              >
+                {{ item.name }}
+              </span>
+              <div style="display: flex; gap: 5px">
+                <el-button
+                  size="mini"
+                  icon="el-icon-edit"
+                  type="text"
+                  @click.stop="editTheme(item)"
+                ></el-button>
+                <el-button
+                  size="mini"
+                  icon="el-icon-delete"
+                  type="text"
+                  style="color: #f56c6c"
+                  @click.stop="deleteTheme(item.id)"
+                ></el-button>
+              </div>
+            </el-menu-item>
+          </el-menu>
+        </div>
       </div>
 
       <!-- 右侧：排名列表 -->
       <div class="right">
         <div class="title">
           <span>{{ currentThemeName }}</span>
-          <div style="display: flex; align-items: center; gap: 8px">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              flex-wrap: wrap;
+            "
+          >
             <el-button
               type="success"
               icon="el-icon-upload"
@@ -68,7 +79,11 @@
             >
               保存到云端
             </el-button>
-            <el-button type="primary" icon="el-icon-plus" @click="addRankItem">
+            <el-button
+              type="primary"
+              icon="el-icon-plus"
+              @click="addRankItem"
+            >
               排名
             </el-button>
             <el-dropdown
@@ -98,7 +113,7 @@
           :data="currentRankList"
           border
           style="width: 100%"
-          height="calc(100% - 40px)"
+          height="calc(100% - 45px)"
           row-key="id"
           stripe
         >
@@ -439,7 +454,6 @@ export default {
         this.themeList.push({ id: newId, name });
         this.rankList[newId] = [];
 
-        // ✅ 修复：新建主题后自动切换过去
         this.switchTheme(newId);
       }
       this.themeDialog = false;
@@ -451,13 +465,11 @@ export default {
           this.themeList = this.themeList.filter((t) => t.id !== id);
           delete this.rankList[id];
 
-          // ✅ 修复：删完后如果还有主题，自动切第一个
           if (this.themeList.length > 0) {
             const firstId = this.themeList[0].id;
             this.currentThemeId = firstId;
             this.activeThemeId = firstId + "";
           } else {
-            // 没有主题了，清空
             this.currentThemeId = 0;
             this.activeThemeId = "";
           }
@@ -467,7 +479,6 @@ export default {
     },
 
     addRankItem() {
-      // ✅ 修复：没有选中主题时不让添加
       if (!this.currentThemeId) {
         this.$message.warning("请先选择或创建一个主题");
         return;
@@ -522,42 +533,102 @@ export default {
 };
 </script>
 
+<!-- 全局样式：清除浏览器默认 margin:8px -->
+<style>
+html,
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+</style>
+
 <style scoped>
+/* 基础布局 占满全屏无溢出 */
 .layout {
   display: flex;
-  max-width: 1200px;
+  width: 100%;
   height: 100%;
   margin: 0 auto;
   gap: 20px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
+
 .left {
-  width: 240px;
+  width: 260px;
   background: #fff;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px #0000010;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px #00000010;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
+
+/* 主题列表：独立滚动区域 */
+.menu-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
 .right {
   flex: 1;
   background: #fff;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px #0000010;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px #00000010;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
 }
+
 .title {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 15px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+
 .menu li {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* ====================== 移动端 / iPad 适配 ====================== */
+@media (max-width: 1024px) {
+  .layout {
+    flex-direction: column;
+  }
+  .left {
+    width: 100%;
+    max-height: 30vh;
+  }
+  .right {
+    flex: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  #app {
+    padding: 12px;
+  }
+  .left,
+  .right {
+    padding: 16px;
+    border-radius: 10px;
+  }
+  .title {
+    font-size: 16px;
+  }
 }
 
 /* 禁止选中 */
