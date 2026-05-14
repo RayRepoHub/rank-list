@@ -596,11 +596,15 @@ export default {
       this.triggerSaveFlash();
     },
     deleteItem(id) {
-      this.$confirm("确定删除？")
-        .then(() => {
-          this.deleteItemById(id);
-        })
-        .catch(() => {});
+      if (this.isSpeedMode) {
+        this.deleteItemById(id);
+      } else {
+        this.$confirm("确定删除？")
+          .then(() => {
+            this.deleteItemById(id);
+          })
+          .catch(() => {});
+      }
     },
     deleteItemById(id) {
       const list = this.rankList[this.currentThemeId];
@@ -671,7 +675,7 @@ body {
   margin-bottom: 15px;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
