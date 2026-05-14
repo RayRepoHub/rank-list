@@ -340,6 +340,9 @@ export default {
     startDrag(e, index) {
       e.preventDefault();
       this.dragIndex = index;
+      // 拖拽开始 禁止选中文字
+      document.body.classList.add("dragging-active");
+
       document.addEventListener("mousemove", this.onDragMove);
       document.addEventListener("mouseup", this.onDragEnd);
       document.addEventListener("touchmove", this.onDragMove);
@@ -377,6 +380,9 @@ export default {
         this.triggerSaveFlash();
       }
       this.dragIndex = null;
+      // 拖拽结束 恢复文字选中
+      document.body.classList.remove("dragging-active");
+
       document.removeEventListener("mousemove", this.onDragMove);
       document.removeEventListener("mouseup", this.onDragEnd);
       document.removeEventListener("touchmove", this.onDragMove);
@@ -688,11 +694,16 @@ body {
 
 /* 拖拽终极高亮：深色底 + 文字加粗 + 上浮 + 阴影 */
 ::v-deep .el-table .dragging-row {
-  /* background-color: #a8d1ff !important; */
   font-weight: bold !important;
   transform: translateY(-2px) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
   transition: all 0.2s ease !important;
+}
+
+/* 拖拽时才禁止表格文字选中，平时可以正常复制 */
+.dragging-active ::v-deep .el-table__body-wrapper {
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* ====================== 移动端 / iPad 适配 ====================== */
@@ -721,12 +732,6 @@ body {
   .title {
     font-size: 16px;
   }
-}
-
-/* 禁止选中 */
-::v-deep .el-table__body-wrapper * {
-  user-select: none !important;
-  -webkit-user-select: none !important;
 }
 
 .el-icon-rank {
