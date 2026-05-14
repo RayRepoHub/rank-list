@@ -688,7 +688,7 @@ body {
 
 /* 拖拽终极高亮：深色底 + 文字加粗 + 上浮 + 阴影 */
 ::v-deep .el-table .dragging-row {
-  background-color: #a8d1ff !important;
+  /* background-color: #a8d1ff !important; */
   font-weight: bold !important;
   transform: translateY(-2px) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
