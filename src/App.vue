@@ -61,7 +61,17 @@
       <!-- 右侧：排名列表 -->
       <div class="right">
         <div class="title">
-          <span>{{ currentThemeName }}</span>
+          <span style="display: flex; align-items: center; gap: 8px">
+            {{ currentThemeName }}
+            <!-- 右侧顶部主题说明图标 保留 -->
+            <el-button
+              v-if="currentThemeInfo && currentThemeInfo.description"
+              icon="el-icon-info"
+              type="text"
+              style="color: #67c23a"
+              @click.stop="showThemeDescription(currentThemeInfo)"
+            />
+          </span>
           <div
             style="
               display: flex;
@@ -190,18 +200,33 @@
       </div>
     </div>
 
+    <!-- 主题 新增/编辑 弹窗 -->
     <el-dialog
       :visible.sync="themeDialog"
       title="主题信息"
       :close-on-click-modal="false"
+      width="500px"
     >
-      <el-input v-model="themeForm.name" placeholder="请输入主题名称" />
+      <el-form label-width="80px">
+        <el-form-item label="主题名称">
+          <el-input v-model="themeForm.name" placeholder="请输入主题名称" />
+        </el-form-item>
+        <el-form-item label="主题说明">
+          <el-input
+            v-model="themeForm.description"
+            type="textarea"
+            rows="4"
+            placeholder="请输入主题说明（可选）"
+          />
+        </el-form-item>
+      </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="themeDialog = false">取消</el-button>
         <el-button type="primary" @click="saveTheme">确认保存</el-button>
       </div>
     </el-dialog>
 
+    <!-- 排名编辑弹窗 -->
     <el-dialog
       :visible.sync="itemDialog"
       title="编辑排名"
@@ -221,6 +246,18 @@
       <div slot="footer">
         <el-button @click="itemDialog = false">取消</el-button>
         <el-button type="primary" @click="saveItem">保存</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看主题说明弹窗 -->
+    <el-dialog
+      :visible.sync="showThemeDescDialog"
+      title="主题说明"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div style="white-space: pre-wrap; line-height: 1.8">
+        {{ currentViewThemeDesc }}
       </div>
     </el-dialog>
   </div>
@@ -243,10 +280,12 @@ export default {
       currentThemeId: 1,
       editThemeId: null,
 
+      // 主题表单增加说明字段
+      themeForm: { name: "", description: "" },
+
       rankList: {},
       themeDialog: false,
       itemDialog: false,
-      themeForm: { name: "" },
       itemForm: { rank: "", name: "", desc: "" },
       editItemId: null,
 
@@ -257,12 +296,20 @@ export default {
 
       dragIndex: null,
       hasEnteredAdminPassword: false,
+
+      // 主题说明弹窗
+      showThemeDescDialog: false,
+      currentViewThemeDesc: "",
     };
   },
   computed: {
     currentThemeName() {
       const theme = this.themeList.find((t) => t.id === this.currentThemeId);
       return theme ? theme.name : "请选择主题";
+    },
+    // 当前主题完整信息
+    currentThemeInfo() {
+      return this.themeList.find((t) => t.id === this.currentThemeId) || null;
     },
     currentRankList() {
       return this.rankList[this.currentThemeId] || [];
@@ -272,6 +319,12 @@ export default {
     this.loadAllData();
   },
   methods: {
+    // 查看主题说明
+    showThemeDescription(item) {
+      this.currentViewThemeDesc = item.description || "暂无说明";
+      this.showThemeDescDialog = true;
+    },
+
     getDescText(content) {
       if (!content) return "";
       return this.$lr.lr(content.replace(/<\/?[^>]+>/gi, " "));
@@ -441,27 +494,42 @@ export default {
 
     addTheme() {
       this.editThemeId = null;
-      this.themeForm.name = "";
+      this.themeForm = { name: "", description: "" };
       this.themeDialog = true;
     },
     editTheme(item) {
       this.editThemeId = item.id;
-      this.themeForm.name = item.name;
+      this.themeForm = {
+        name: item.name || "",
+        description: item.description || "",
+      };
       this.themeDialog = true;
     },
     saveTheme() {
       const name = (this.themeForm.name || "").trim();
       if (!name) return this.$message.warning("请输入主题名");
 
+      const data = {
+        name: name,
+        description: (this.themeForm.description || "").trim(),
+      };
+
       if (this.editThemeId) {
         const idx = this.themeList.findIndex((t) => t.id === this.editThemeId);
-        if (idx > -1) this.themeList[idx].name = name;
+        if (idx > -1) {
+          this.themeList[idx].name = data.name;
+          this.themeList[idx].description = data.description;
+        }
       } else {
         const max = this.themeList.length
           ? Math.max(...this.themeList.map((t) => t.id))
           : 0;
         const newId = max + 1;
-        this.themeList.push({ id: newId, name });
+        this.themeList.push({
+          id: newId,
+          name: data.name,
+          description: data.description,
+        });
         this.rankList[newId] = [];
         this.switchTheme(newId);
       }
@@ -517,7 +585,6 @@ export default {
       if (this.editItemId) {
         const idx = list.findIndex((i) => i.id === this.editItemId);
         if (idx > -1) {
-          // ✅ 修复：用 splice 替代直接赋值，触发视图更新
           list.splice(idx, 1, { ...this.itemForm });
         }
       } else {
