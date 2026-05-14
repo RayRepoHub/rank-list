@@ -516,7 +516,10 @@ export default {
 
       if (this.editItemId) {
         const idx = list.findIndex((i) => i.id === this.editItemId);
-        if (idx > -1) list[idx] = { ...this.itemForm };
+        if (idx > -1) {
+          // ✅ 修复：用 splice 替代直接赋值，触发视图更新
+          list.splice(idx, 1, { ...this.itemForm });
+        }
       } else {
         const newId =
           (list.length ? Math.max(...list.map((i) => i.id)) : 0) + 1;
