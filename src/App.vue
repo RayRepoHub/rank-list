@@ -490,6 +490,32 @@ export default {
     this.loadAllData();
   },
   methods: {
+    // ================== 封装：管理员密码校验 ==================
+    async checkAdminPassword() {
+      // 已验证过，直接通过
+      if (this.hasEnteredAdminPassword) return true;
+
+      try {
+        const { value } = await this.$prompt("请输入管理员密码", "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          inputRequired: true,
+          inputType: "password",
+          inputPattern: /\S/,
+          inputErrorMessage: "密码不能为空",
+        });
+
+        if (value === this.ADMIN_PASSWORD) {
+          this.hasEnteredAdminPassword = true;
+          return true;
+        } else {
+          this.$message.error("密码错误");
+          return false;
+        }
+      } catch {
+        return false; // 取消输入
+      }
+    },
     // 查看主题说明
     showThemeDescription(item) {
       this.currentViewThemeDesc = item.description || "暂无说明";
@@ -614,28 +640,9 @@ export default {
     },
 
     async handleSaveToCloud() {
-      if (this.hasEnteredAdminPassword) {
-        await this.saveToCloud();
-        return;
-      }
-
-      this.$prompt("请输入管理员密码", "提示", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        inputRequired: true,
-        inputType: "password",
-        inputPattern: /\S/,
-        inputErrorMessage: "密码不能为空",
-      })
-        .then(async ({ value }) => {
-          if (value !== this.ADMIN_PASSWORD) {
-            this.$message.error("密码错误");
-          } else {
-            this.hasEnteredAdminPassword = true;
-            await this.saveToCloud();
-          }
-        })
-        .catch(() => {});
+      const pass = await this.checkAdminPassword();
+      if (!pass) return;
+      await this.saveToCloud();
     },
 
     async saveToCloud() {
@@ -794,7 +801,9 @@ export default {
     resetBackupForm() {
       this.backupForm = { note: "" };
     },
-    openBackupDialog() {
+    async openBackupDialog() {
+      const pass = await this.checkAdminPassword();
+      if (!pass) return;
       this.resetBackupForm();
       this.backupDialog = true;
     },
@@ -843,6 +852,8 @@ export default {
     },
 
     async openRestoreDialog() {
+      const pass = await this.checkAdminPassword();
+      if (!pass) return;
       this.restoreDialog = true;
       this.backupListLoading = true;
       try {
