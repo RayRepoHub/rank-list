@@ -333,9 +333,15 @@
             "
           >
             <div style="flex: 1">
-              <div><b>备份时间：</b>{{ item.time }}</div>
+              <div><b>备份时间：</b></div>
+              <div>
+                {{ item.time }}
+              </div>
               <div style="margin-top: 4px">
-                <b>备份说明：</b>{{ item.note }}
+                <b>备份说明：</b>
+              </div>
+              <div>
+                {{ item.note }}
               </div>
             </div>
 
@@ -940,9 +946,26 @@ export default {
         type: "warning",
       })
         .then(async () => {
-          this.backupList.splice(index, 1);
-          await this.saveBackupListToCloud(this.backupList);
-          this.$message.success("删除成功");
+          // 开启loading
+          const loading = this.$loading({
+            lock: true,
+            text: "删除中...",
+            background: "rgba(0,0,0,0.6)",
+          });
+          try {
+            const newList = [...this.backupList];
+            newList.splice(index, 1);
+            // 先存云端
+            await this.saveBackupListToCloud(newList);
+            // 成功再更新页面
+            this.backupList = newList;
+            this.$message.success("删除成功");
+          } catch (err) {
+            this.$message.error("删除失败，请重试");
+          } finally {
+            // 关闭loading
+            loading.close();
+          }
         })
         .catch(() => {});
     },
