@@ -845,7 +845,14 @@ export default {
           { headers: { "X-Master-Key": this.JSONBIN_MASTER_KEY } }
         );
         const data = await res.json();
-        return Array.isArray(data.record) ? data.record : [];
+        let list = Array.isArray(data.record) ? data.record : [];
+
+        // 核心修复：遇到空标记，返回真正的空数组
+        if (list.length === 1 && list[0]?.empty === true) {
+          return [];
+        }
+
+        return list;
       } catch {
         return [];
       }
@@ -962,6 +969,13 @@ export default {
     // ================== 统一保存备份列表到云端 ==================
     async saveBackupListToCloud(list) {
       try {
+        // 核心修复：空数组时，存一个标记，而不是真的空
+        const uploadData = Array.isArray(list)
+          ? list.length === 0
+            ? [{ empty: true }]
+            : list
+          : [];
+
         await fetch(
           `https://api.jsonbin.io/v3/b/${this.JSONBIN_BACKUP_BIN_ID}`,
           {
@@ -970,7 +984,7 @@ export default {
               "Content-Type": "application/json",
               "X-Master-Key": this.JSONBIN_MASTER_KEY,
             },
-            body: JSON.stringify(list),
+            body: JSON.stringify(uploadData),
           }
         );
       } catch (e) {
