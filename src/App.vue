@@ -80,6 +80,23 @@
               flex-wrap: wrap;
             "
           >
+            <!-- 备份按钮 -->
+            <el-button
+              type="warning"
+              icon="el-icon-download"
+              @click="openBackupDialog"
+            >
+              备份数据
+            </el-button>
+            <!-- 回退按钮 -->
+            <el-button
+              type="danger"
+              icon="el-icon-refresh-left"
+              @click="openRestoreDialog"
+            >
+              数据回退
+            </el-button>
+
             <el-button
               type="success"
               icon="el-icon-upload"
@@ -264,11 +281,148 @@
         {{ currentViewThemeDesc }}
       </div>
     </el-dialog>
+
+    <!-- ================== 备份弹窗 ================== -->
+    <el-dialog
+      :visible.sync="backupDialog"
+      title="创建数据备份"
+      width="500px"
+      @close="resetBackupForm"
+    >
+      <el-form label-width="80px">
+        <el-form-item label="备份说明">
+          <el-input
+            v-model="backupForm.note"
+            type="textarea"
+            :autosize="{ minRows: 3 }"
+            placeholder="例如：版本1 / 稳定版 / 修改前备份"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button @click="backupDialog = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="backupLoading"
+          @click="createBackup"
+        >
+          确认备份
+        </el-button>
+      </div>
+    </el-dialog>
+
+    <!-- ================== 回退弹窗 ================== -->
+    <el-dialog
+      :visible.sync="restoreDialog"
+      title="选择备份并回退"
+      width="720px"
+      top="10vh"
+    >
+      <div v-if="backupListLoading" style="text-align: center">加载中...</div>
+      <div v-else style="max-height: 450px; overflow-y: auto">
+        <el-card
+          v-for="(item, idx) in backupList"
+          :key="idx"
+          shadow="hover"
+          style="margin-bottom: 10px"
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 12px;
+            "
+          >
+            <div style="flex: 1">
+              <div><b>备份时间：</b>{{ item.time }}</div>
+              <div style="margin-top: 4px">
+                <b>备份说明：</b>{{ item.note }}
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; white-space: nowrap">
+              <!-- 编辑备注 -->
+              <el-button
+                size="mini"
+                type="primary"
+                plain
+                icon="el-icon-edit"
+                @click="openEditBackupNote(idx, item.note)"
+              >
+                编辑备注
+              </el-button>
+
+              <!-- 更新备份（用当前数据覆盖） -->
+              <el-button
+                size="mini"
+                type="success"
+                plain
+                icon="el-icon-refresh"
+                @click="updateBackupVersion(idx)"
+              >
+                更新版本
+              </el-button>
+
+              <!-- 回退 -->
+              <el-button size="mini" type="danger" @click="doRestore(item)">
+                回退到此
+              </el-button>
+
+              <!-- 删除 -->
+              <el-button
+                size="mini"
+                type="danger"
+                plain
+                icon="el-icon-delete"
+                @click="deleteBackupVersion(idx)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
+        </el-card>
+
+        <div
+          v-if="backupList.length === 0"
+          style="text-align: center; color: #999; padding: 20px"
+        >
+          暂无备份
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- ================== 编辑备份备注弹窗 ================== -->
+    <el-dialog
+      :visible.sync="editBackupNoteDialog"
+      title="编辑备份备注"
+      width="450px"
+    >
+      <el-form label-width="80px">
+        <el-form-item label="备份说明">
+          <el-input
+            v-model="editBackupNoteForm.note"
+            type="textarea"
+            :autosize="{ minRows: 3 }"
+            placeholder="请输入备注"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button @click="editBackupNoteDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveEditBackupNote">保存</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { JSONBIN_MASTER_KEY, JSONBIN_BIN_ID, ADMIN_PASSWORD } from "@/const.js";
+import {
+  JSONBIN_MASTER_KEY,
+  JSONBIN_BIN_ID,
+  ADMIN_PASSWORD,
+  JSONBIN_BACKUP_BIN_ID,
+} from "@/const.js";
 
 export default {
   name: "App",
@@ -278,6 +432,7 @@ export default {
       JSONBIN_MASTER_KEY: JSONBIN_MASTER_KEY,
       JSONBIN_BIN_ID: JSONBIN_BIN_ID,
       ADMIN_PASSWORD: ADMIN_PASSWORD,
+      JSONBIN_BACKUP_BIN_ID: JSONBIN_BACKUP_BIN_ID,
 
       themeList: [],
       activeThemeId: "1",
@@ -304,6 +459,20 @@ export default {
       // 主题说明弹窗
       showThemeDescDialog: false,
       currentViewThemeDesc: "",
+
+      // 备份相关
+      backupDialog: false,
+      backupLoading: false,
+      backupForm: { note: "" },
+
+      restoreDialog: false,
+      backupList: [],
+      backupListLoading: false,
+
+      // 编辑备份备注
+      editBackupNoteDialog: false,
+      editBackupNoteForm: { note: "" },
+      editBackupIndex: -1,
     };
   },
   computed: {
@@ -621,6 +790,183 @@ export default {
       if (!list) return;
       this.rankList[this.currentThemeId] = list.filter((i) => i.id !== id);
       this.triggerSaveFlash();
+    },
+
+    // ================== 备份功能 ==================
+    resetBackupForm() {
+      this.backupForm = { note: "" };
+    },
+    openBackupDialog() {
+      this.resetBackupForm();
+      this.backupDialog = true;
+    },
+    async createBackup() {
+      const note = this.backupForm.note?.trim() || "无说明";
+      this.backupLoading = true;
+      try {
+        const now = new Date();
+        const timeStr = now
+          .toLocaleString("zh-CN", { hour12: false })
+          .replaceAll("/", "-");
+
+        const backupData = {
+          time: timeStr,
+          note: note,
+          data: {
+            themeList: JSON.parse(JSON.stringify(this.themeList)),
+            rankList: JSON.parse(JSON.stringify(this.rankList)),
+          },
+        };
+
+        const oldBackups = await this.loadAllBackupsPure();
+        const newList = [backupData, ...oldBackups].slice(0, 50);
+
+        await this.saveBackupListToCloud(newList);
+        this.$message.success("备份成功");
+        this.backupDialog = false;
+      } catch (e) {
+        this.$message.error("备份失败");
+      } finally {
+        this.backupLoading = false;
+      }
+    },
+
+    async loadAllBackupsPure() {
+      try {
+        const res = await fetch(
+          `https://api.jsonbin.io/v3/b/${this.JSONBIN_BACKUP_BIN_ID}/latest`,
+          { headers: { "X-Master-Key": this.JSONBIN_MASTER_KEY } }
+        );
+        const data = await res.json();
+        return Array.isArray(data.record) ? data.record : [];
+      } catch {
+        return [];
+      }
+    },
+
+    async openRestoreDialog() {
+      this.restoreDialog = true;
+      this.backupListLoading = true;
+      try {
+        const list = await this.loadAllBackupsPure();
+        this.backupList = list;
+      } finally {
+        this.backupListLoading = false;
+      }
+    },
+
+    async doRestore(backup) {
+      this.$confirm("确定要回退到此备份吗？当前数据会被覆盖！", "警告", {
+        confirmButtonText: "确定回退",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(async () => {
+          try {
+            this.loading = true;
+            const { themeList, rankList } = backup.data;
+
+            await fetch(`https://api.jsonbin.io/v3/b/${this.JSONBIN_BIN_ID}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Master-Key": this.JSONBIN_MASTER_KEY,
+              },
+              body: JSON.stringify({ themeList, rankList }),
+            });
+
+            this.themeList = themeList;
+            this.rankList = rankList;
+            if (themeList.length) {
+              this.currentThemeId = themeList[0].id;
+              this.activeThemeId = this.currentThemeId + "";
+            }
+            this.$message.success("回退成功！已恢复数据");
+          } catch (e) {
+            this.$message.error("回退失败");
+          } finally {
+            this.loading = false;
+            this.restoreDialog = false;
+          }
+        })
+        .catch(() => {});
+    },
+
+    // ================== 增强备份功能：编辑备注 ==================
+    openEditBackupNote(index, note) {
+      this.editBackupIndex = index;
+      this.editBackupNoteForm.note = note || "";
+      this.editBackupNoteDialog = true;
+    },
+
+    async saveEditBackupNote() {
+      const idx = this.editBackupIndex;
+      if (idx < 0) return;
+      const note = this.editBackupNoteForm.note?.trim() || "无说明";
+
+      this.backupList[idx].note = note;
+      await this.saveBackupListToCloud(this.backupList);
+      this.$message.success("备注已更新");
+      this.editBackupNoteDialog = false;
+    },
+
+    // ================== 增强备份功能：删除版本 ==================
+    async deleteBackupVersion(index) {
+      this.$confirm("确定删除此备份？删除后无法恢复", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(async () => {
+          this.backupList.splice(index, 1);
+          await this.saveBackupListToCloud(this.backupList);
+          this.$message.success("删除成功");
+        })
+        .catch(() => {});
+    },
+
+    // ================== 增强备份功能：更新版本（用当前数据覆盖） ==================
+    async updateBackupVersion(index) {
+      this.$confirm("确定用【当前最新数据】覆盖此备份版本吗？", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(async () => {
+          const now = new Date();
+          const timeStr = now
+            .toLocaleString("zh-CN", { hour12: false })
+            .replaceAll("/", "-");
+
+          this.backupList[index].data = {
+            themeList: JSON.parse(JSON.stringify(this.themeList)),
+            rankList: JSON.parse(JSON.stringify(this.rankList)),
+          };
+          this.backupList[index].time = timeStr;
+
+          await this.saveBackupListToCloud(this.backupList);
+          this.$message.success("此备份已更新为当前最新数据");
+        })
+        .catch(() => {});
+    },
+
+    // ================== 统一保存备份列表到云端 ==================
+    async saveBackupListToCloud(list) {
+      try {
+        await fetch(
+          `https://api.jsonbin.io/v3/b/${this.JSONBIN_BACKUP_BIN_ID}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Master-Key": this.JSONBIN_MASTER_KEY,
+            },
+            body: JSON.stringify(list),
+          }
+        );
+      } catch (e) {
+        this.$message.error("保存备份列表失败");
+      }
     },
   },
 };
