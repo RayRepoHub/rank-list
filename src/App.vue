@@ -285,6 +285,7 @@
       :visible.sync="backupDialog"
       title="创建数据备份"
       width="500px"
+      :close-on-click-modal="false"
       @close="resetBackupForm"
     >
       <el-form label-width="80px">
@@ -315,6 +316,7 @@
       title="选择备份并回退"
       width="720px"
       top="10vh"
+      :close-on-click-modal="false"
     >
       <div v-if="backupListLoading" style="text-align: center">加载中...</div>
       <div v-else style="max-height: 450px; overflow-y: auto">
@@ -401,6 +403,7 @@
       :visible.sync="editBackupNoteDialog"
       title="编辑备份备注"
       width="450px"
+      :close-on-click-modal="false"
     >
       <el-form label-width="80px">
         <el-form-item label="备份说明">
