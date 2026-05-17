@@ -501,19 +501,25 @@ export default {
           cancelButtonText: "取消",
           inputRequired: true,
           inputType: "password",
+          closeOnClickModal: false,
           inputPattern: /\S/,
           inputErrorMessage: "密码不能为空",
         });
 
-        if (value === this.ADMIN_PASSWORD) {
+        const isOk = value === this.ADMIN_PASSWORD;
+        if (isOk) {
           this.hasEnteredAdminPassword = true;
-          return true;
         } else {
           this.$message.error("密码错误");
           return false;
         }
+
+        // 核心：200ms 平滑缓冲，解决弹窗闪烁跳转
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return true;
       } catch {
-        return false; // 取消输入
+        // 取消输入直接终止
+        return false;
       }
     },
     // 查看主题说明
