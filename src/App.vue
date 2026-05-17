@@ -12,7 +12,22 @@
     <div class="layout">
       <!-- 左侧：主题管理 -->
       <div class="left">
-        <div class="title">主题管理</div>
+        <div class="title">
+          <div>主题管理</div>
+          <el-dropdown trigger="click">
+            <span class="cursor-pointer">
+              <i class="el-icon-s-tools"></i>设置
+            </span>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item @click.native="openBackupDialog">
+                备份数据
+              </el-dropdown-item>
+              <el-dropdown-item @click.native="openRestoreDialog">
+                数据回退
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </el-dropdown>
+        </div>
         <el-button
           type="primary"
           icon="el-icon-plus"
@@ -80,23 +95,6 @@
               flex-wrap: wrap;
             "
           >
-            <!-- 备份按钮 -->
-            <el-button
-              type="warning"
-              icon="el-icon-download"
-              @click="openBackupDialog"
-            >
-              备份数据
-            </el-button>
-            <!-- 回退按钮 -->
-            <el-button
-              type="danger"
-              icon="el-icon-refresh-left"
-              @click="openRestoreDialog"
-            >
-              数据回退
-            </el-button>
-
             <el-button
               type="success"
               icon="el-icon-upload"
