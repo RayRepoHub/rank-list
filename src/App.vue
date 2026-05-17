@@ -166,7 +166,7 @@
                   v-model="scope.row.desc"
                   type="textarea"
                   size="mini"
-                  :rows="1"
+                  autosize
                   style="width: 100%"
                 ></el-input>
               </div>
@@ -215,7 +215,7 @@
           <el-input
             v-model="themeForm.description"
             type="textarea"
-            rows="4"
+            :autosize="{ minRows: 4 }"
             placeholder="请输入主题说明（可选）"
           />
         </el-form-item>
@@ -240,7 +240,11 @@
           <el-input v-model="itemForm.name" />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input v-model="itemForm.desc" type="textarea" rows="3" />
+          <el-input
+            v-model="itemForm.desc"
+            type="textarea"
+            :autosize="{ minRows: 4 }"
+          />
         </el-form-item>
       </el-form>
       <div slot="footer">
